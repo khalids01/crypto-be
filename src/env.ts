@@ -1,5 +1,6 @@
 // src/config/env.ts
 export const env = {
+  BINANCE_BASE_URL: 'https://api.binance.com',
   BINANCE_API_KEY:
     'JTXLG32nvpseuhDj2GH3DAzvnGuTJ2rwe5Ucxc1dy6ZwMXVRT6iM2cxrBvCaiJ9x',
   BINANCE_SECRET_KEY:
