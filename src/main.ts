@@ -1,12 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, LogLevel, ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './exceptions/http';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { env } from './env';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logLevels: LogLevel[] =
+    env.NODE_ENV === 'production'
+      ? ['error', 'warn', 'log']
+      : ['error', 'warn', 'log', 'debug', 'verbose'];
+
+  const app = await NestFactory.create(AppModule, {
+    logger: logLevels,
+  });
+
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(
     new ValidationPipe({
@@ -37,6 +45,16 @@ async function bootstrap() {
     swaggerUiEnabled: true,
   });
 
-  await app.listen(env.PORT ?? 3001);
+  const port = env.PORT ?? 3001;
+  
+  await app.listen(port);
+  
+  const logger = new Logger('Bootstrap');
+
+  logger.log(`🚀 Alive at: http://localhost:${port}`);
+  logger.log(
+    `📚 API Docs at: http://localhost:${port}/api/docs`,
+  );
+  logger.log(`🌐 Environment: ${env.NODE_ENV || 'dev'}`);
 }
 bootstrap();
