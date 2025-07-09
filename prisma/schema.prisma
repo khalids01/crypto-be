@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CoinData {
+  id         String      @id @default(cuid())
+  symbol     String      @unique // BTCUSDT, ETHUSDT etc
+  coinName   String? // BTC, ETH etc
+  arbitrages Arbitrage[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Arbitrage {
+  id              String           @id @default(cuid())
+  exchange        String // binance, kucoin etc
+  coinSymbol      String // BTCUSDT, ETHUSDT etc
+  marketSnapshots MarketSnapshot[] // Each arbitrage (exchange+symbol) has many candles
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  coinData   CoinData? @relation(fields: [coinDataId], references: [id])
+  coinDataId String?
+
+  @@unique([exchange, coinDataId])
+  @@index([exchange, coinSymbol])
+}
+
+model MarketSnapshot {
+  id        String   @id @default(cuid())
+  openTime  DateTime // When this market interval (e.g., 1 minute) started
+  closeTime DateTime // When this market interval ended (usually 1 min after openTime)
+
+  rawJson    Json?
+  parsedJson Json?
+
+  open        Float // Price at the start of the interval
+  high        Float // Highest price during the interval
+  low         Float // Lowest price during the interval
+  close       Float // Price at the end of the interval
+  volume      Float? // Total base asset traded (e.g., how many BTC in BTCUSDT)
+  quoteVolume Float? // Total quote asset value traded (e.g., USDT in BTCUSDT) — optional
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  arbitrage   Arbitrage? @relation(fields: [arbitrageId], references: [id])
+  arbitrageId String?
+
+  @@index([arbitrageId])
+}

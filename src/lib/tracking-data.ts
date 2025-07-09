@@ -1,4 +1,10 @@
-export const platforms = ['Binance', 'KuCoin', 'OKX', 'Coinbase'];
+export const platforms = {
+  binance: 'binance',
+  kucoin: 'kucoin',
+  okx: 'okx',
+  coinbase: 'coinbase',
+};
+
 export const symbols = {
   BTCUSDC: 'BTCUSDC',
   SOLUSDC: 'SOLUSDC',

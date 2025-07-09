@@ -1,34 +1,25 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
 import { ArbitrageFeedService } from './arbitrage-feed.service';
 import { CreateArbitrageFeedDto } from './dto/create-arbitrage-feed.dto';
 import { UpdateArbitrageFeedDto } from './dto/update-arbitrage-feed.dto';
+import { QueryDto } from './dto/query.dto';
+import { ApiQuery } from '@nestjs/swagger';
 
 @Controller('arbitrage-feed')
 export class ArbitrageFeedController {
   constructor(private readonly arbitrageFeedService: ArbitrageFeedService) {}
-
-  @Post()
-  create(@Body() createArbitrageFeedDto: CreateArbitrageFeedDto) {
-    return this.arbitrageFeedService.create(createArbitrageFeedDto);
-  }
-
+  @ApiQuery({ type: QueryDto })
   @Get()
-  findAll() {
-    return this.arbitrageFeedService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.arbitrageFeedService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateArbitrageFeedDto: UpdateArbitrageFeedDto) {
-    return this.arbitrageFeedService.update(+id, updateArbitrageFeedDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.arbitrageFeedService.remove(+id);
+  findAll(@Query() query: QueryDto) {
+    return this.arbitrageFeedService.findAll(query);
   }
 }

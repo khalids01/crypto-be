@@ -1,36 +1,33 @@
 import { Injectable } from '@nestjs/common';
 import { binanceApi } from '@/lib/binance/api';
-import { CreateArbitrageFeedDto } from './dto/create-arbitrage-feed.dto';
-import { UpdateArbitrageFeedDto } from './dto/update-arbitrage-feed.dto';
 import { symbols } from '@/lib/tracking-data';
 import { endpoints } from '@/lib/binance/endpoints';
 import { parseKlines } from '@/lib/binance/util';
+import { QueryDto } from './dto/query.dto';
+import { PrismaService } from '@/modules/prisma/prisma.service';
 
 @Injectable()
 export class ArbitrageFeedService {
-  create(createArbitrageFeedDto: CreateArbitrageFeedDto) {
-    return 'This action adds a new arbitrageFeed';
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(query: QueryDto) {
+    const { symbol, interval, limit } = query ?? {
+      symbol: symbols.DOGEUSDC,
+      interval: '1m',
+      limit: 12,
+    };
     const ticker = await binanceApi(endpoints.kline, {
-      params: { symbol: symbols.DOGEUSDC, interval: '1m', limit: 10 },
+      params: { symbol, interval, limit },
     });
 
     const parsedTickers = parseKlines(ticker);
 
-    return parsedTickers;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} arbitrageFeed`;
-  }
-
-  update(id: number, updateArbitrageFeedDto: UpdateArbitrageFeedDto) {
-    return `This action updates a #${id} arbitrageFeed`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} arbitrageFeed`;
+    return {
+      total: parsedTickers.length,
+      symbol,
+      interval,
+      limit,
+      data: [{ name: 'Binance', color: '#f59e0b', data: parsedTickers }],
+    };
   }
 }
