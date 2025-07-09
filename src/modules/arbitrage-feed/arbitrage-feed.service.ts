@@ -9,13 +9,13 @@ export class ArbitrageFeedService {
 
   async findAll(query: QueryDto) {
     const { symbol, interval, limit } = query ?? {
-      symbol: symbols.DOGEUSDC,
+      symbol: symbols.BTCUSDC,
       interval: '1m',
       limit: 12,
     };
     const coinData = await this.prisma.coinData.findUnique({
       where: {
-        symbol,
+        symbol: symbol ?? symbols.BTCUSDC,
       },
       include: {
         arbitrages: {
@@ -24,7 +24,7 @@ export class ArbitrageFeedService {
               orderBy: {
                 openTime: 'desc',
               },
-              take: limit,
+              take: limit ?? 100,
             },
           },
         },
@@ -35,7 +35,7 @@ export class ArbitrageFeedService {
       symbol,
       interval,
       limit,
-      data: [{ name: 'Binance', color: '#f59e0b', data: coinData }],
+      data: coinData,
     };
   }
 }

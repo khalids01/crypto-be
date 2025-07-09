@@ -30,6 +30,7 @@ model Arbitrage {
   marketSnapshots MarketSnapshot[] // Each arbitrage (exchange+symbol) has many candles
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  color           String           @default("#8884d8")
 
   coinData   CoinData? @relation(fields: [coinDataId], references: [id])
   coinDataId String?
