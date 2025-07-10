@@ -9,7 +9,7 @@ export interface PriceData {
   price: number;
 }
 // Raw Binance Kline entry (array of strings/numbers)
-export type RawKline = [
+type RawKline = [
   number, // Open time
   string, // Open
   string, // High

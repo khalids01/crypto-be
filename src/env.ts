@@ -3,11 +3,11 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // Debug: Show current directory
-console.log('Current directory:', __dirname);
+// console.log('Current directory:', __dirname);
 
 // Try to find .env file
 const envPath = path.resolve(process.cwd(), '.env');
-console.log('Looking for .env at:', envPath);
+// console.log('Looking for .env at:', envPath);
 
 // Check if .env file exists
 if (fs.existsSync(envPath)) {
@@ -33,10 +33,13 @@ export const env = {
   DOGEUSDC_MARKET_ADDRESS: process.env.DOGEUSDC_MARKET_ADDRESS,
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3001,
+  KUCOIN_BASE_URL: process.env.KUCOIN_BASE_URL,
 };
 
 // Log all environment variables (for debugging)
-console.log('Environment variables:');
-Object.entries(env).forEach(([key, value]) => {
-  console.log(`${key}: ${value ? '***' + String(value).slice(-4) : 'undefined'}`);
-});
+// console.log('Environment variables:');
+// Object.entries(env).forEach(([key, value]) => {
+//   console.log(
+//     `${key}: ${value ? '***' + String(value).slice(-4) : 'undefined'}`,
+//   );
+// });

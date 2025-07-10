@@ -18,24 +18,18 @@ export class ArbitrageFeedService {
         symbol: symbol ?? symbols.BTCUSDC,
       },
       include: {
-        arbitrages: {
+        exchanges: {
           include: {
             marketSnapshots: {
               orderBy: {
                 openTime: 'desc',
               },
-              take: limit ?? 100,
+              take: limit ?? 20,
             },
           },
         },
       },
     });
-    return {
-      total: coinData.arbitrages.length,
-      symbol,
-      interval,
-      limit,
-      data: coinData,
-    };
+    return coinData;
   }
 }

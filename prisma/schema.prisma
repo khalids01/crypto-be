@@ -15,15 +15,15 @@ datasource db {
 }
 
 model CoinData {
-  id         String      @id @default(cuid())
-  symbol     String      @unique // BTCUSDT, ETHUSDT etc
-  coinName   String? // BTC, ETH etc
-  arbitrages Arbitrage[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id        String     @id @default(cuid())
+  symbol    String     @unique // BTCUSDT, ETHUSDT etc
+  coinName  String? // BTC, ETH etc
+  exchanges Exchange[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
-model Arbitrage {
+model Exchange {
   id              String           @id @default(cuid())
   exchange        String // binance, kucoin etc
   coinSymbol      String // BTCUSDT, ETHUSDT etc
@@ -54,10 +54,10 @@ model MarketSnapshot {
   volume      Float? // Total base asset traded (e.g., how many BTC in BTCUSDT)
   quoteVolume Float? // Total quote asset value traded (e.g., USDT in BTCUSDT) — optional
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  arbitrage   Arbitrage? @relation(fields: [arbitrageId], references: [id])
-  arbitrageId String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  exchange   Exchange? @relation(fields: [exchangeId], references: [id])
+  exchangeId String?
 
-  @@index([arbitrageId])
+  @@index([exchangeId])
 }
