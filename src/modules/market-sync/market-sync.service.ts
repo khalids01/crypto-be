@@ -5,14 +5,17 @@ import { platforms, symbols } from '@/lib/tracking-data';
 import { binanceApi } from '@/lib/binance/api';
 import { endpoints } from '@/lib/binance/endpoints';
 import { parseKlines } from '@/lib/binance/util';
-import { kucoinApi, kuCoinFetchLatestKline } from '@/lib/kucoin/api';
+import { kuCoinFetchLatestKline } from '@/lib/kucoin/api';
 import { parseKucoinKlines } from '@/lib/kucoin/util';
+import { intervals } from '@/lib/intervals';
+import { getRelativeTime } from '@/utils/getRelativeTime';
 
 @Injectable()
 export class MarketSyncService {
   private readonly logger = new Logger(MarketSyncService.name);
-  private readonly UPDATE_INTERVAL_MS = 60_000; // 60 seconds
-  private readonly CLEANUP_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
+  private readonly UPDATE_INTERVAL_MS = 60_000 * 60; // 1 hour
+  private readonly CLEANUP_INTERVAL_MS = 60_000 * 60 * 24 * 60; // 60 days
+  private readonly LIMIT = 60;
   private updateIntervalId: NodeJS.Timeout;
 
   constructor(
@@ -35,98 +38,125 @@ export class MarketSyncService {
       this.fetchAndStoreData().catch((err) => {
         this.logger.error('Scheduled data fetch failed', err);
       });
-      this.kuCoinData().catch((err) => {
-        this.logger.error('Scheduled data fetch failed', err);
-      });
     }, this.UPDATE_INTERVAL_MS);
 
     // Store the interval in the scheduler registry for proper cleanup
-    this.schedulerRegistry.addInterval(
-      'binanceDataFetch',
-      this.updateIntervalId,
-    );
+    this.schedulerRegistry.addInterval('marketSync', this.updateIntervalId);
+  }
+
+  private getInterval(platform: string) {
+    if(platform === platforms.binance) {
+      return intervals.binance['1M'];
+    }
+    if(platform === platforms.kucoin) {
+      return intervals.kucoin['1min'];
+    }
   }
 
   private async fetchAndStoreData() {
     try {
-      const symbol = symbols.BTCUSDC;
-      const interval = '1m';
-      const limit = 12; // Get only the latest data point
-
-      const binanceTicker = await binanceApi(endpoints.kline, {
-        params: { symbol, interval, limit },
-      });
-
-      const parsedData = parseKlines(binanceTicker);
-
-      if (parsedData) {
-        let coinData = await this.prisma.coinData.findUnique({
-          where: {
-            symbol,
-          },
-        });
-        if (!coinData) {
-          coinData = await this.prisma.coinData.create({
-            data: {
-              symbol,
-              coinName: symbol,
-            },
-          });
-        }
-        let exchange = await this.prisma.exchange.findUnique({
-          where: {
-            exchange_coinDataId: {
-              exchange: platforms.binance,
-              coinDataId: coinData.id,
-            },
-          },
-        });
-        if (!exchange) {
-          exchange = await this.prisma.exchange.create({
-            data: {
-              exchange: platforms.binance,
-              coinSymbol: symbol,
-              coinDataId: coinData.id,
-            },
-          });
-        }
-
-        await this.prisma.marketSnapshot.createMany({
-          data: parsedData.map(
-            ({ openTime, closeTime, high, low, open, close, volume }) => ({
-              exchangeId: exchange.id,
-              openTime,
-              closeTime,
-              open,
-              high,
-              low,
-              close,
-              volume,
-            }),
-          ),
-        });
-        // Store the data in the database using upsert to avoid duplicates
-
-        this.logger.log(
-          `Successfully updated market data for ${symbol} at ${new Date().toISOString()}`,
-        );
-
-        await this.cleanupOldSnapshots(exchange.id);
-      }
+      await Promise.all([this.binanceData(), this.kuCoinData()]);
     } catch (error) {
       this.logger.error('Error in fetchAndStoreData:', error);
       throw error; // Re-throw to be caught by the caller
     }
   }
 
+  private async binanceData() {
+    const symbol = symbols.BTCUSDC;
+    const interval = this.getInterval(platforms.binance);
+
+    const binanceTicker = await binanceApi(endpoints.kline, {
+      params: { symbol, interval, limit: this.LIMIT },
+    });
+
+    const parsedData = parseKlines(binanceTicker);
+
+    if (parsedData && parsedData.length > 0) {
+      let coinData = await this.prisma.coinData.findUnique({
+        where: {
+          symbol,
+        },
+      });
+      if (!coinData) {
+        coinData = await this.prisma.coinData.create({
+          data: {
+            symbol,
+            coinName: symbol,
+          },
+        });
+      }
+      let exchange = await this.prisma.exchange.findUnique({
+        where: {
+          exchange_coinDataId: {
+            exchange: platforms.binance,
+            coinDataId: coinData.id,
+          },
+        },
+      });
+      if (!exchange) {
+        exchange = await this.prisma.exchange.create({
+          data: {
+            exchange: platforms.binance,
+            coinSymbol: symbol,
+            coinDataId: coinData.id,
+          },
+        });
+      }
+
+      // Process data in chunks to avoid too many DB operations at once
+      for (const data of parsedData) {
+        try {
+          await this.prisma.marketSnapshot.upsert({
+            where: {
+              openTime_exchangeId: {
+                exchangeId: exchange.id,
+                openTime: data.openTime,
+              },
+            },
+            create: {
+              exchangeId: exchange.id,
+              openTime: data.openTime,
+              closeTime: data.closeTime,
+              open: data.open,
+              high: data.high,
+              low: data.low,
+              close: data.close,
+              volume: data.volume,
+            },
+            update: {
+              closeTime: data.closeTime,
+              open: data.open,
+              high: data.high,
+              low: data.low,
+              close: data.close,
+              volume: data.volume,
+            },
+          });
+        } catch (error) {
+          this.logger.error(
+            `Error upserting market snapshot: ${error.message}`,
+          );
+        }
+      }
+      // Store the data in the database using upsert to avoid duplicates
+
+      this.logger.log(
+        `Successfully updated market data for ${symbol} at ${new Date().toISOString()}`,
+      );
+
+      await this.cleanupOldSnapshots(exchange.id);
+    }
+  }
+
   private async kuCoinData() {
     const symbol = symbols.BTCUSDC;
-    const limit = 12;
-    const interval = '1min';
+    const interval = this.getInterval(platforms.kucoin);
+    const intervalMs = 60_000 * 60 * 24 * 60;
     const kucoinTicker = await kuCoinFetchLatestKline({
       symbol: 'BTC-USDT',
       interval,
-      lookbackSeconds: limit,
+      lookbackSeconds: this.LIMIT,
     });
     const parsedData = parseKucoinKlines(kucoinTicker);
 
@@ -158,26 +188,46 @@ export class MarketSyncService {
             exchange: platforms.kucoin,
             coinSymbol: symbol,
             coinDataId: coinData.id,
-            color: "#1CA4B6"
+            color: '#1CA4B6',
           },
         });
       }
 
-      await this.prisma.marketSnapshot.createMany({
-        data: parsedData.map(
-          ({ openTime, high, low, open, close, volume }) => ({
-            exchangeId: exchange.id,
-            openTime,
-            closeTime: new Date(openTime.getTime() + 600),
-            open,
-            high,
-            low,
-            close,
-            volume,
-          }),
-        ),
-      });
-      // Store the data in the database using upsert to avoid duplicates
+      // Process data in chunks to avoid too many DB operations at once
+      for (const data of parsedData) {
+        try {
+          await this.prisma.marketSnapshot.upsert({
+            where: {
+              openTime_exchangeId: {
+                exchangeId: exchange.id,
+                openTime: data.openTime,
+              },
+            },
+            create: {
+              exchangeId: exchange.id,
+              openTime: data.openTime,
+              closeTime: new Date(data.openTime.getTime() + intervalMs),
+              open: data.open,
+              high: data.high,
+              low: data.low,
+              close: data.close,
+              volume: data.volume,
+            },
+            update: {
+              closeTime: new Date(data.openTime.getTime() + intervalMs),
+              open: data.open,
+              high: data.high,
+              low: data.low,
+              close: data.close,
+              volume: data.volume,
+            },
+          });
+        } catch (error) {
+          this.logger.error(
+            `Error upserting market snapshot: ${error.message}`,
+          );
+        }
+      }
 
       this.logger.log(
         `Successfully updated market data for ${symbol} at ${new Date().toISOString()}`,
@@ -198,7 +248,7 @@ export class MarketSyncService {
     });
 
     console.log(
-      `🧹 Cleanup complete: deleted ${deleted.count} snapshots older than 2 hours for exchangeId: ${exchangeId}`,
+      `🧹 Cleanup complete: deleted ${deleted.count} snapshots older than ${getRelativeTime(cutoff)} for exchangeId: ${exchangeId}`,
     );
   }
 }

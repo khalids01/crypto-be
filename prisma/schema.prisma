@@ -59,5 +59,6 @@ model MarketSnapshot {
   exchange   Exchange? @relation(fields: [exchangeId], references: [id])
   exchangeId String?
 
+  @@unique([openTime, exchangeId])
   @@index([exchangeId])
 }

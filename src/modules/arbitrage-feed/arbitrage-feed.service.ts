@@ -22,7 +22,7 @@ export class ArbitrageFeedService {
           include: {
             marketSnapshots: {
               orderBy: {
-                openTime: 'desc',
+                openTime: 'asc',
               },
               take: limit ?? 20,
             },
