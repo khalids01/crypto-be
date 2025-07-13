@@ -88,16 +88,16 @@ export async function kuCoinFetchLatestKline({
   interval = '1min',
   lookbackSeconds = 60,
   config = {},
+  startAt,
+  endAt,
 }: {
   symbol: string;
   interval?: string;
   lookbackSeconds?: number;
   config?: KucoinApiConfig;
+  startAt?: number;
+  endAt?: number;
 }) {
-  const now = Math.floor(Date.now() / 1000);
-  const endAt = now - (now % 60);
-  const startAt = endAt - 600;
-
   const klines = await fetchKlines(
     symbol,
     startAt,

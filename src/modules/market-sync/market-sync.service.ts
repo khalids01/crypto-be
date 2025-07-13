@@ -13,9 +13,9 @@ import { getRelativeTime } from '@/utils/getRelativeTime';
 @Injectable()
 export class MarketSyncService {
   private readonly logger = new Logger(MarketSyncService.name);
-  private readonly UPDATE_INTERVAL_MS = 60_000 * 60; // 1 hour
-  private readonly CLEANUP_INTERVAL_MS = 60_000 * 60 * 24 * 60; // 60 days
-  private readonly LIMIT = 60;
+  private readonly UPDATE_INTERVAL_MS = 60_000 * 60; // 1 m
+  private readonly CLEANUP_INTERVAL_MS = 60_000 * 60 * 24; // 1 day
+  private readonly LIMIT = 1440;
   private updateIntervalId: NodeJS.Timeout;
 
   constructor(
@@ -37,6 +37,8 @@ export class MarketSyncService {
     this.updateIntervalId = setInterval(() => {
       this.fetchAndStoreData().catch((err) => {
         this.logger.error('Scheduled data fetch failed', err);
+      }).finally(() => {
+        this.logger.log('Scheduled data fetch completed');
       });
     }, this.UPDATE_INTERVAL_MS);
 
@@ -45,10 +47,10 @@ export class MarketSyncService {
   }
 
   private getInterval(platform: string) {
-    if(platform === platforms.binance) {
-      return intervals.binance['1M'];
+    if (platform === platforms.binance) {
+      return intervals.binance['1m'];
     }
-    if(platform === platforms.kucoin) {
+    if (platform === platforms.kucoin) {
       return intervals.kucoin['1min'];
     }
   }
@@ -152,11 +154,15 @@ export class MarketSyncService {
   private async kuCoinData() {
     const symbol = symbols.BTCUSDC;
     const interval = this.getInterval(platforms.kucoin);
-    const intervalMs = 60_000 * 60 * 24 * 60;
+    const intervalMs = this.UPDATE_INTERVAL_MS;
+    const endAt = Math.floor(Date.now() / 1000); // current time
+    const startAt = endAt - this.LIMIT * 60; // go back N minutes
     const kucoinTicker = await kuCoinFetchLatestKline({
       symbol: 'BTC-USDT',
       interval,
-      lookbackSeconds: this.LIMIT,
+      lookbackSeconds: this.LIMIT * 60,
+      startAt,
+      endAt,
     });
     const parsedData = parseKucoinKlines(kucoinTicker);
 

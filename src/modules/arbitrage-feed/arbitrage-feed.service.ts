@@ -11,7 +11,7 @@ export class ArbitrageFeedService {
     const { symbol, interval, limit } = query ?? {
       symbol: symbols.BTCUSDC,
       interval: '1m',
-      limit: 12,
+      limit: 1440,
     };
     const coinData = await this.prisma.coinData.findUnique({
       where: {
@@ -24,12 +24,24 @@ export class ArbitrageFeedService {
               orderBy: {
                 openTime: 'asc',
               },
-              take: limit ?? 20,
+              take: limit,
             },
           },
         },
       },
     });
+
+    console.log(
+      'Binance candles: ',
+      coinData.exchanges.find((e) => e.exchange === 'binance')?.marketSnapshots
+        .length,
+    );
+    console.log(
+      'KuCoin candles: ',
+      coinData.exchanges.find((e) => e.exchange === 'kucoin')?.marketSnapshots
+        .length,
+    );
+
     return coinData;
   }
 }
